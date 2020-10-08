@@ -13,14 +13,18 @@ library(FLasher)
 source('functions.R')
 
 # VARS
-set.seed(1234)
 nyears <- 60 # Max. number of years
-iters <- 250 # No. of replicates for SR residuals
-iters <- 5
+iters <- 100 # No. of replicates for SR residuals
 vBiomass <- 1000 # Initial VBiomass
-margSD <- 0.2 # Marginal SD of AR1 process
-rsd <- 0.6 # Log SD of SR residuals
 rho <- 0.6 # AR rho
+
+variability = c(0.2, 0.6)
+
+for(i in 1:length(variability)){
+set.seed(1234)
+margSD <- variability[i] # Marginal SD of AR1 process
+rsd <- variability[i] # Log SD of SR residuals
+
 
 # SIMS & INPUT
 sims <- list()
@@ -140,8 +144,8 @@ print(name)
 
 # Add catchE
 sims <- lapply(sims, function(x) {
-	# Normal error with CV=20%
-	x$catchE <- apply(x$catch, 1:5, function(x) rnorm(iters, x, x * 0.20))
+	# Normal error with CV=10%
+	x$catchE <- apply(x$catch, 1:5, function(x) x * rlnorm(iters, meanlog=0, sdlog=0.10))
 #    FLQuant(aperm(apply(x$catch, 1:5, function(x) rnorm(iters, x, x* 0.20)),
 #		c(2,3,4,5,6,1)), dimnames=dimnames(x$catch))
 	return(x)
@@ -208,201 +212,4 @@ rm(inputTMP)
 gc()
 }
 # }}}
-
-# DETERMINISTIC RUN for sims and input {{{
-
-sce$AR <- sce$AR['NR']
-
-sims <- list()
-input <- list()
-
-# LH
-for(lh in names(sce$LH)) {
-	par <- lhPar(sce$LH[[lh]]$par)
-	brp <- lhEql(par, range=sce$LH[[lh]]$range)
-  refpts(brp)['crash', 'harvest'] <- refpts(brp)['msy', 'harvest'] * 2.5
-
-# AR
-for(ar in names(sce$AR)) {
-	srres <- switch(ar,
-	"NR"=rlnorm(1, FLQuant(0, dimnames=list(year=2:nyears)), sd=0))
-
-# ID
-for(id in names(sce$ID)) {
-	stk <- setupStock(brp, iniBiomass=vBiomass * sce$ID[[id]], nyears)
-
-# ED
-for(ed in names(sce$ED)) {
-	stock <- switch(ed, 
-	# one way trip
-	"OW"=oneWayTrip(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, srres=srres),
-	# roller coaster
-	"RC1"=rollerCoaster(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		fmsy=refpts(brp)['msy', 'harvest'], years=2:nyears, up=0.1, down=0.05,
-		sr=list(model='bevholt', params=params(brp)), srres=srres),
-	# RC
-	"RC"=rollerCoaster2(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		fmsy=refpts(brp)['msy', 'harvest'], years=2:nyears, upy=25, top=5, downy=30,
-		sr=list(model='bevholt', params=params(brp)), srres=srres),
-	# effort dynamics
-	"ED0"=effortDynamics(stk, bmsy=c(refpts(brp)['msy', 'ssb']),
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, xp=sce$ED[[ed]],
-		srres=srres),
-	"ED0.6"=effortDynamics(stk, bmsy=c(refpts(brp)['msy', 'ssb']),
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, xp=sce$ED[[ed]],
-		srres=srres)
-	)
-# SEL
-sel <- "SELF"
-# TS
-for(ts in names(sce$TS)) {
-	stock <- stock[,seq(nyears-sce$TS[[ts]]+1, nyears)]
-
-# UR
-for (ur in names(sce$UR)) {
-	
-# VAL
-val[1,] <- c(lh, sce$ID[[id]],  sce$AR[[ar]], ed, sel, sce$UR[[ur]],
-	sce$TS[[ts]])
-
-# NAME
-name <- paste(lh, id, ar, ed, sel, ur, ts, sep="_")
-name(stock) <- name
-desc(stock) <- paste(name, Sys.time())
-
-# SIMS
-sims[[name]] <- list(lh=par, code=name, stock=stock,
-	brp=brp, val=val, catch=catch(stock)*(1-sce$UR[[ur]]))
-
-print(name)
 }
-}
-}
-}
-}
-gc()
-}
-
-# save RData
-save(sims, file=paste("out/", rsd, "/simsDET1.2", format(Sys.time(), "%Y%m%d%H%M"),
-	".RData", sep=""))
-
-# input
-input <- lapply(sims, function(x) {
-	y <- list()
-	# catch
-	y$catch <- as.data.frame(x$catch)[,c('year', 'data')]
-	# linf
-	y$linf <- c(x$lh['linf'])
-	# tmax
-	y$tmax <- dims(x$stock)$max
-	# tmat
-	y$tmat <- which(c(mat(x$stock)) > 0.5)[1]-1
-	return(y)
-	})
-
-# save RData
-save(input, file=paste("out/", rsd, "/inputDET1.2", format(Sys.time(), "%Y%m%d%H%M"),
-	".RData", sep=""))
-
-# }}}
-
-# DETERMINISTIC RUN for sims and input with ED target=1.2 BMSY{{{
-
-sce$AR <- sce$AR['NR']
-
-sims <- list()
-input <- list()
-
-# LH
-for(lh in names(sce$LH)) {
-	par <- lhPar(sce$LH[[lh]]$par)
-	brp <- lhEql(par, range=sce$LH[[lh]]$range)
-  refpts(brp)['crash', 'harvest'] <- refpts(brp)['msy', 'harvest'] * 2.5
-
-# AR
-for(ar in names(sce$AR)) {
-	srres <- switch(ar,
-	"NR"=rlnorm(1, FLQuant(0, dimnames=list(year=2:nyears)), sd=0))
-
-# ID
-for(id in names(sce$ID)) {
-	stk <- setupStock(brp, iniBiomass=vBiomass * sce$ID[[id]], nyears)
-
-# ED
-for(ed in names(sce$ED)) {
-	stock <- switch(ed, 
-	# one way trip
-	"OW"=oneWayTrip(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, srres=srres),
-	# roller coaster
-	"RC1"=rollerCoaster(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		fmsy=refpts(brp)['msy', 'harvest'], years=2:nyears, up=0.1, down=0.05,
-		sr=list(model='bevholt', params=params(brp)), srres=srres),
-	# RC
-	"RC"=rollerCoaster2(stk, fmax=refpts(brp)['crash', 'harvest']*sce$ED[[ed]], 
-		fmsy=refpts(brp)['msy', 'harvest'], years=2:nyears, upy=25, top=5, downy=30,
-		sr=list(model='bevholt', params=params(brp)), srres=srres),
-	# effort dynamics
-	"ED0"=effortDynamics(stk, bmsy=c(refpts(brp)['msy', 'ssb'])*1.2,
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, xp=sce$ED[[ed]],
-		srres=srres),
-	"ED0.6"=effortDynamics(stk, bmsy=c(refpts(brp)['msy', 'ssb'])*1.2,
-		sr=list(model='bevholt', params=params(brp)), years=2:nyears, xp=sce$ED[[ed]],
-		srres=srres)
-	)
-# SEL
-sel <- "SELF"
-# TS
-for(ts in names(sce$TS)) {
-	stock <- stock[,seq(nyears-sce$TS[[ts]]+1, nyears)]
-
-# UR
-for (ur in names(sce$UR)) {
-	
-# VAL
-val[1,] <- c(lh, sce$ID[[id]],  sce$AR[[ar]], ed, sel, sce$UR[[ur]],
-	sce$TS[[ts]])
-
-# NAME
-name <- paste(lh, id, ar, ed, sel, ur, ts, sep="_")
-name(stock) <- name
-desc(stock) <- paste(name, Sys.time())
-
-# SIMS
-sims[[name]] <- list(lh=par, code=name, stock=stock,
-	brp=brp, val=val, catch=catch(stock)*(1-sce$UR[[ur]]))
-
-print(name)
-}
-}
-}
-}
-}
-gc()
-}
-
-# save RData
-save(sims, file=paste("out/", rsd, "/simsDET1.2", format(Sys.time(), "%Y%m%d%H%M"),
-	".RData", sep=""))
-
-# input
-input <- lapply(sims, function(x) {
-	y <- list()
-	# catch
-	y$catch <- as.data.frame(x$catch)[,c('year', 'data')]
-	# linf
-	y$linf <- c(x$lh['linf'])
-	# tmax
-	y$tmax <- dims(x$stock)$max
-	# tmat
-	y$tmat <- which(c(mat(x$stock)) > 0.5)[1]-1
-	return(y)
-	})
-
-# save RData
-save(input, file=paste("out/", rsd, "/inputDET1.2", format(Sys.time(), "%Y%m%d%H%M"),
-	".RData", sep=""))
-
-# }}}
