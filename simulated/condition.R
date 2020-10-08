@@ -140,12 +140,13 @@ print(name)
 }
 }
 
-# Error in C: 20% CV {{{
+# Error in C: 10% CV {{{
 
 # Add catchE
 sims <- lapply(sims, function(x) {
 	# Normal error with CV=10%
-	x$catchE <- apply(x$catch, 1:5, function(x) x * rlnorm(iters, meanlog=0, sdlog=0.10))
+	x$catchE <- x$catch
+	x$catchE@.Data <- x$catch@.Data * array(rlnorm(length(x$catch@.Data), meanlog=0, sdlog=0.10), dim=dim(x$catch@.Data))
 #    FLQuant(aperm(apply(x$catch, 1:5, function(x) rnorm(iters, x, x* 0.20)),
 #		c(2,3,4,5,6,1)), dimnames=dimnames(x$catch))
 	return(x)
