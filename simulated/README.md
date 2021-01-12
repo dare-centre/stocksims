@@ -1,4 +1,89 @@
-#
+# Install dependencies
+
+The first step is to install depndencies:
+
+1. Install GGplot2
+
+```
+install.packages("ggplot2")
+```
+
+2. Install iterators
+
+```
+install.packages("iterators")
+```
+
+3. Grid extra
+
+```
+install.packages("gridExtra")
+install.packages("ggplotFL", repos="http://flr-project.org/R", INSTALL_opts = c("--with-keep.source"))
+```
+
+3. Install FLCore
+
+```
+install.packages("FLCore", repos="http://flr-project.org/R", INSTALL_opts = c("--with-keep.source"))
+```
+
+3. FLBRP
+
+```
+install.packages("FLBRP", repos="http:///flr-project.org/R", INSTALL_opts = c("--with-keep.source"))
+```
+
+4. FLife
+```
+install.packages("FLife", repos="http:///flr-project.org/R", INSTALL_opts = c("--with-keep.source"))
+```
+
+5. FLife
+```
+install.packages("FLasher", repos="http://flr-project.org/R", INSTALL_opts = c("--with-keep.source"))
+```
+
+# Debug packages
+
+1. Download the git repository for the source code of the package you want to install to a separate directory.
+2. Modify your ~/.r/Makevars file and include the following
+
+```
+ R_INSTALL_STAGED = false
+ ALL_CXXFLAGS = -ggdb -O0 -Wall
+ ALL_CFLAGS = -ggdb -O0 -Wall
+```
+3. Install package in R, which will compile the code
+
+```bash
+R
+```
+
+```R
+install.packages('/absolute/path/to/package', repos=NULL, verbose = TRUE, quiet = FALSE)
+```
+
+If your package was previously installed and compiled and need to reinstall/recompile, then remove the respective directory on cd /usr/local/Cellar/r/4.0.0_1/lib/R/library/
+
+4. Start R in debug mode
+
+```bash
+R --debugger=lldb
+```
+
+5. Optional set breakpoints
+
+
+```lldb
+breakpoint set --name FunctionName
+```
+
+6. Run debug process 
+
+```lldb
+run
+```
+
 
 ## Scenarios
 
